@@ -62,3 +62,54 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`API running on port ${PORT}`);
 });
+
+
+app.get('/recipes', async (req, res) => {
+  try {
+    const query = req.query.query;
+
+    if (!query) {
+      return res.status(400).json({ error: 'query is required' });
+    }
+
+    const searchQuery = `${query} وصفة`;
+
+    const response = await axios.get(
+      `https://api.duckduckgo.com/?q=${encodeURIComponent(searchQuery)}&format=json`
+    );
+
+    const data = response.data;
+
+    const results = [];
+
+    // النتائج تكون داخل RelatedTopics
+    const topics = data.RelatedTopics || [];
+
+    for (let item of topics) {
+      if (item.Text && item.FirstURL) {
+        results.push({
+          title: item.Text,
+          link: item.FirstURL,
+        });
+      }
+
+      // بعض النتائج nested
+      if (item.Topics) {
+        for (let sub of item.Topics) {
+          if (sub.Text && sub.FirstURL) {
+            results.push({
+              title: sub.Text,
+              link: sub.FirstURL,
+            });
+          }
+        }
+      }
+
+      if (results.length >= 5) break;
+    }
+
+    res.json(results);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch recipes' });
+  }
+});
